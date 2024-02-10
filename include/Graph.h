@@ -20,7 +20,6 @@ private:
     verNode<verType, edgeType> *dest; // 射入的节点的指针
     edgeType weight;                  // 边的权重
     edgeNode *next;                   // 单链表中的*next
-    bool visited = false;             // 记录边是否访问过,用于Euler circle/path
 public:
     edgeNode(verNode<verType, edgeType> *destination = nullptr, edgeType edgeWeight = 1, edgeNode *nextNode = nullptr) : dest(destination), weight(edgeWeight), next(nextNode) {}
 };
@@ -81,10 +80,17 @@ private:
     bool connected_dircted() const;
     // 判断无向图连通性
     bool connected_undircted() const;
-
+    //判断有向图是否存在欧拉回路
+    bool hasEulerCircuit_dircted() const;
+    //判断无向图是否存在欧拉回路
+    bool hasEulerCircuit_undircted() const;
+    //fleury算法求有向图欧拉回路
+    void fleury_dircted() const;
+    //fleury算法求无向图欧拉回路
+    void fleury_undircted() const;
 public:
     // 初始化图结构g，direct为是否有向图标志,true为有向图,false为无向图
-    Graph(bool direct = false);
+    Graph(bool direct = false,verNode<verType, edgeType> *h=nullptr);
     // 返回图当前顶点数
     int numberOfVertex() const { return verts; };
     // 返回图当前边数
@@ -107,8 +113,12 @@ public:
     void BFS() const;
     // 图的连通性，连通返回true,
     bool connected() const;
-    //应该用指针传递避免对象被销毁
-    Graph clone() const;
+    //返回克隆的图的head，注意它没有
+    verNode<verType, edgeType> * clone() const;
+    //判断是否存在欧拉回路
+    bool hasEulerCircuit() const;
+    //fleury算法求欧拉回路
+    void fleury() const;
     ~Graph();
 };
 template <class verType, class edgeType>
@@ -218,14 +228,17 @@ bool Graph<verType, edgeType>::connected_undircted() const
 
 // 初始化图结构g，direct为是否有向图标志
 template <class verType, class edgeType>
-Graph<verType, edgeType>::Graph(bool direct)
+Graph<verType, edgeType>::Graph(bool direct,verNode<verType, edgeType> *h=nullptr)
 {
     // 初始化属性
     directed = direct;
     verts = 0;
     edges = 0;
-    // 为存顶点的一维数组创建空间
-    head = new verNode<verType, edgeType>();
+    // 生成顶点链表的头结点
+    if(h)
+        head=h;
+    else
+        head = new verNode<verType, edgeType>();
 }
 // 插入顶点
 template <class verType, class edgeType>
@@ -532,6 +545,48 @@ bool Graph<verType, edgeType>::connected() const
     if (directed)
         return connected_dircted();
     return connected_undircted();
+}
+template <class verType, class edgeType>
+verNode<verType, edgeType> * Graph<verType, edgeType>::clone() const
+{
+    //空链表头
+    verNode<verType, edgeType> * h=new verNode<verType, edgeType>();
+    verNode<verType, edgeType> * src=head->next,rslt=h;//src指向原节点，rslt直接复制结果节点
+    //复制节点链表
+    while(src)
+    {
+        rslt->next=new verNode<verType, edgeType>(src->ver);
+        src=src->next;
+        rslt=rslt->next;
+    }
+    //src rslt归位
+    src=head->next;
+    rslt=h->next;
+    //复制边链表
+    while(src)
+    {
+        edgeNode<verType, edgeType> *s=src->head->next ,*r=rslt->head;//s指向原边，r指向复制结果边的前一个结点
+        //克隆边一个结点的边链表
+        while(s)
+        {
+            verNode<verType, edgeType> *tmp=h->next;//用于查找结果的节点指针，用于生成边节点
+            while(tmp)
+            {
+                if(tmp->ver==s->dest->ver)
+                    break;
+                tmp=tmp->next;
+            }
+            if(!tmp)
+                throw logic_error("clone error");
+            s->next=new edgeNode<verType, edgeType>(tmp);
+            s=s->next;
+            r=r->next;
+        }
+        src=src->next;
+        rslt=rslt->next;
+    }
+
+    return h;
 }
 template <class verType, class edgeType>
 Graph<verType, edgeType>::~Graph()
