@@ -68,6 +68,7 @@ class Graph
 {
     friend class edgeNode<verType, edgeType>;
     friend class verNode<verType, edgeType>;
+
 private:
     bool directed;                    // 有向图为1，无向图为0
     int verts, edges;                 // 图的实际顶点数和实际边数
@@ -90,6 +91,8 @@ private:
     void fleury_dircted() const;
     // fleury算法求无向图欧拉回路
     void fleury_undircted() const;
+    // 求图的转置，用于判断有向图的连通性；
+    Graph<verType, edgeType> *reverse() const;
 
 public:
     // 初始化图结构g，direct为是否有向图标志,true为有向图,false为无向图
@@ -117,7 +120,7 @@ public:
     // 图的连通性，连通返回true,
     bool connected() const;
     // 返回克隆的图的head，注意它没有
-    verNode<verType, edgeType> *clone() const;
+    Graph<verType, edgeType> *clone() const;
     // 判断是否存在欧拉回路
     bool hasEulerCircuit() const;
     // fleury算法求欧拉回路
@@ -177,7 +180,92 @@ void Graph<verType, edgeType>::DFS(verNode<verType, edgeType> *start) const
 template <class verType, class edgeType>
 bool Graph<verType, edgeType>::connected_dircted() const
 {
-    cerr << "function have'n completed";
+    // 原图BFS
+    seqQueue<verNode<verType, edgeType> *> q;
+    edgeNode<verType, edgeType> *p;
+    verNode<verType, edgeType> *v = head->next, *start;
+    int count = 0; // count为计数器
+
+    // 置初始访问标志为false。
+    while (v)
+    {
+        v->visited = false;
+        v = v->next;
+    }
+    // 逐一找到未被访问过顶点，
+    // 做广度优先遍历
+    v = head->next;
+    while (v)
+    {
+        if (v->visited)
+        {
+            v = v->next;
+            continue;
+        }
+        q.enQueue(v);
+        count++;
+        while (!q.isEmpty())
+        {
+            start = q.getFront();
+            q.deQueue();
+            if (start->visited)
+                continue;
+            start->visited = true;
+            p = start->head->next;
+            while (p)
+            {
+                if (!p->dest->visited)
+                    q.enQueue(p->dest);
+                p = p->next;
+            }
+        }
+    }
+    if (count != 1)
+        return false;
+    // 转置图BFS
+    Graph<verType, edgeType> *tmp = reverse();
+    assert(q.isEmpty());
+    p = nullptr;
+    v = tmp->head->next;
+    start = nullptr;
+    count = 0; // count为计数器
+
+    // 置初始访问标志为false。
+    while (v)
+    {
+        v->visited = false;
+        v = v->next;
+    }
+    // 逐一找到未被访问过顶点，
+    // 做广度优先遍历
+    v = tmp->head->next;
+    while (v)
+    {
+        if (v->visited)
+        {
+            v = v->next;
+            continue;
+        }
+        q.enQueue(v);
+        count++;
+        while (!q.isEmpty())
+        {
+            start = q.getFront();
+            q.deQueue();
+            if (start->visited)
+                continue;
+            start->visited = true;
+            p = start->head->next;
+            while (p)
+            {
+                if (!p->dest->visited)
+                    q.enQueue(p->dest);
+                p = p->next;
+            }
+        }
+    }
+    if (count != 1)
+        return false;
     return true;
 }
 // 判断无向图连通性
@@ -223,15 +311,28 @@ bool Graph<verType, edgeType>::connected_undircted() const
             }
         }
     }
-    if (count == 1)
-        return true;
-    return false;
+    if (count != 1)
+        return false;
+    return true;
 }
 // 判断有向图是否存在欧拉回路
 template <class verType, class edgeType>
 bool Graph<verType, edgeType>::hasEulerCircuit_dircted() const
 {
-    verNode<verType, edgeType>*v=head->next;
+    if (!connected())
+        return false;
+    verNode<verType, edgeType> *v = head->next;
+    // 如果判断欧拉道路需要记录奇度数的结点数
+    // 同时需要改变函数的返回值
+    // 比如结点指针，nullptr为空，特定结点为起点，不需要考虑回路起点
+    // int count=0;
+    while (v)
+    {
+        if (v->indegree!=v->outdegree)
+            return false;
+        // count++
+        v = v->next;
+    }
 
     return true;
 }
@@ -239,61 +340,125 @@ bool Graph<verType, edgeType>::hasEulerCircuit_dircted() const
 template <class verType, class edgeType>
 bool Graph<verType, edgeType>::hasEulerCircuit_undircted() const
 {
-    if(!connected())
+    if (!connected())
         return false;
-    verNode<verType, edgeType>* v=head->next;
-    //如果判断欧拉道路需要记录奇度数的结点数
-    //同时需要改变函数的返回值
-    //比如结点指针，nullptr为空，特定结点为起点，不需要考虑回路起点
-    //int count=0;
-    while(v)
+    verNode<verType, edgeType> *v = head->next;
+    // 如果判断欧拉道路需要记录奇度数的结点数
+    // 同时需要改变函数的返回值
+    // 比如结点指针，nullptr为空，特定结点为起点，不需要考虑回路起点
+    // int count=0;
+    while (v)
     {
-        if((v->indegree)%2)
+        if ((v->indegree) % 2)
             return false;
-            //count++
-        v=v->next;
+        // count++
+        v = v->next;
     }
-    
+
     return true;
-} 
+}
 // fleury算法求有向图欧拉回路
 template <class verType, class edgeType>
 void Graph<verType, edgeType>::fleury_dircted() const
 {
-
-} 
+    if (!hasEulerCircuit())
+    {
+        cerr << "no EulerCircuit";
+        return;
+    }
+    cout << "EulerCircuit :" << '\n';
+    Graph<verType, edgeType> *tmp = clone();
+    seqStack<verNode<verType, edgeType> *> stk;
+    verNode<verType, edgeType> *v = tmp->head->next, *tmpv;
+    edgeNode<verType, edgeType> *e = nullptr;
+    stk.push(v);
+    while (!stk.isEmpty())
+    {
+        v = stk.top();
+        if (!v->head->next)
+        {
+            cout << v->ver << ' ';
+            stk.pop();
+            continue;
+        }
+        e = v->head->next;
+        tmpv = e->dest;
+        //tmp->removeEdge(v->ver,e->dest->ver);
+        v->head->next=e->next;
+        delete e;
+        e=nullptr;
+        v = tmpv;
+        stk.push(v);
+    }
+    delete tmp;
+    return;
+}
 // fleury算法求无向图欧拉回路
 template <class verType, class edgeType>
 void Graph<verType, edgeType>::fleury_undircted() const
 {
-    if(!hasEulerCircuit())
+    if (!hasEulerCircuit())
     {
-        cerr<<"no EulerCircuit";
+        cerr << "no EulerCircuit";
         return;
     }
-    cout<<"EulerCircuit :"<<'\n';
-    Graph<verType, edgeType> *tmp=new Graph<verType, edgeType>(directed,clone());
-    seqStack<verNode<verType, edgeType>*> stk;
-    verNode<verType, edgeType>* v=tmp->head->next,*tmpv;
-    edgeNode<verType, edgeType>* e=nullptr;
+    cout << "EulerCircuit :" << '\n';
+    Graph<verType, edgeType> *tmp = clone();
+    seqStack<verNode<verType, edgeType> *> stk;
+    verNode<verType, edgeType> *v = tmp->head->next, *tmpv;
+    edgeNode<verType, edgeType> *e = nullptr;
     stk.push(v);
-    while(!stk.isEmpty())
+    while (!stk.isEmpty())
     {
-        v=stk.top();
-        if(!v->head->next)
+        v = stk.top();
+        if (!v->head->next)
         {
-            cout<<v->ver<<' ';
+            cout << v->ver << ' ';
             stk.pop();
             continue;
         }
-        e=v->head->next;
-        tmpv=e->dest;
-        tmp->removeEdge(e->dest->ver,v->ver);
-        v=tmpv;
+        e = v->head->next;
+        tmpv = e->dest;
+        tmp->removeEdge( v->ver,e->dest->ver);
+        v = tmpv;
         stk.push(v);
-            
     }
+    delete tmp;
     return;
+}
+
+// 求图的转置，用于判断有向图的连通性；
+template <class verType, class edgeType>
+Graph<verType, edgeType> *Graph<verType, edgeType>::reverse() const
+{
+    Graph<verType, edgeType> *tmp = new Graph<verType, edgeType>(directed);
+    assert(tmp->directed);
+    // 空链表头
+    verNode<verType, edgeType> *h = tmp->head;
+    verNode<verType, edgeType> *src = head->next, *rslt = h; // src指向原节点，rslt直接复制结果节点
+    // 复制节点链表
+    while (src)
+    {
+        rslt->next = new verNode<verType, edgeType>(src->ver);
+        src = src->next;
+        rslt = rslt->next;
+    }
+    // src rslt归位
+    src = head->next;
+    rslt = h->next;
+    // 复制边链表
+    while (src)
+    {
+        edgeNode<verType, edgeType> *s = src->head->next; // s指向原边
+        // 克隆边一个结点的边链表
+        while (s)
+        {
+            tmp->insertEdge(s->dest->ver, src->ver);
+            s = s->next;
+        }
+        src = src->next;
+    }
+    return tmp;
 }
 // 初始化图结构g，direct为是否有向图标志
 template <class verType, class edgeType>
@@ -604,13 +769,7 @@ void Graph<verType, edgeType>::BFS() const
                 p = p->next;
             }
         }
-        if (v->visited)
-        {
-            v = v->next;
-            continue;
-        }
-        if (v)
-            cout << '\n';
+        cout << '\n';
     }
 }
 // 图的连通性，连通返回true
@@ -622,10 +781,11 @@ bool Graph<verType, edgeType>::connected() const
     return connected_undircted();
 }
 template <class verType, class edgeType>
-verNode<verType, edgeType> *Graph<verType, edgeType>::clone() const
+Graph<verType, edgeType> *Graph<verType, edgeType>::clone() const
 {
+    Graph<verType, edgeType> *tmp = new Graph<verType, edgeType>(directed);
     // 空链表头
-    verNode<verType, edgeType> *h = new verNode<verType, edgeType>();
+    verNode<verType, edgeType> *h = tmp->head;
     verNode<verType, edgeType> *src = head->next, *rslt = h; // src指向原节点，rslt直接复制结果节点
     // 复制节点链表
     while (src)
@@ -660,8 +820,7 @@ verNode<verType, edgeType> *Graph<verType, edgeType>::clone() const
         src = src->next;
         rslt = rslt->next;
     }
-
-    return h;
+    return tmp;
 }
 // 判断是否存在欧拉回路
 template <class verType, class edgeType>
@@ -677,9 +836,9 @@ template <class verType, class edgeType>
 void Graph<verType, edgeType>::fleury() const
 {
     if (directed)
-        fleury_dircted();
+        return fleury_dircted();
     else
-        fleury_undircted();
+        return fleury_undircted();
 }
 template <class verType, class edgeType>
 Graph<verType, edgeType>::~Graph()
