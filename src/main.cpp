@@ -31,7 +31,11 @@ int main() {
         std::cout<<"hasEulerCircuit"<<'\n';
         myGraph.fleury();
     }
-        
+    if(myGraph.cyclic())
+    {
+        std::cout<<"cyclic";
+    }
+
     //Graph<string,double> *tmp=myGraph.clone();
     //std::cout<<"clone"<<'\n';
     //tmp->display();

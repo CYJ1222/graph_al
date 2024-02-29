@@ -80,17 +80,23 @@ private:
     // 深度优先搜索算法递归调用部分
     void DFS(verNode<verType, edgeType> *start) const;
     // 判断有向图连通性
-    bool connected_dircted() const;
+    bool connected_directed() const;
     // 判断无向图连通性
-    bool connected_undircted() const;
+    bool connected_undirected() const;
+    // 判断有向图是否有回路
+    bool cyclic_directed(verNode<verType, edgeType> *v, map<verNode<verType, edgeType> *, bool> &rec) const;
+    // 判断有向图是否有回路
+    bool cyclic_directed() const;
+    // 判断无向图是否有回路
+    bool cyclic_undirected() const;
     // 判断有向图是否存在欧拉回路
-    bool hasEulerCircuit_dircted() const;
+    bool hasEulerCircuit_directed() const;
     // 判断无向图是否存在欧拉回路
-    bool hasEulerCircuit_undircted() const;
+    bool hasEulerCircuit_undirected() const;
     // fleury算法求有向图欧拉回路
-    void fleury_dircted() const;
+    void fleury_directed() const;
     // fleury算法求无向图欧拉回路
-    void fleury_undircted() const;
+    void fleury_undirected() const;
     // 求图的转置，用于判断有向图的连通性；
     Graph<verType, edgeType> *reverse() const;
 
@@ -119,6 +125,8 @@ public:
     void BFS() const;
     // 图的连通性，连通返回true,
     bool connected() const;
+    // 判断是否有回路
+    bool cyclic() const;
     // 返回克隆的图的head，注意它没有
     Graph<verType, edgeType> *clone() const;
     // 判断是否存在欧拉回路
@@ -178,7 +186,7 @@ void Graph<verType, edgeType>::DFS(verNode<verType, edgeType> *start) const
 
 // 判断有向图连通性
 template <class verType, class edgeType>
-bool Graph<verType, edgeType>::connected_dircted() const
+bool Graph<verType, edgeType>::connected_directed() const
 {
     // 原图BFS
     seqQueue<verNode<verType, edgeType> *> q;
@@ -222,6 +230,7 @@ bool Graph<verType, edgeType>::connected_dircted() const
     }
     if (count != 1)
         return false;
+    
     // 转置图BFS
     Graph<verType, edgeType> *tmp = reverse();
     assert(q.isEmpty());
@@ -270,7 +279,7 @@ bool Graph<verType, edgeType>::connected_dircted() const
 }
 // 判断无向图连通性
 template <class verType, class edgeType>
-bool Graph<verType, edgeType>::connected_undircted() const
+bool Graph<verType, edgeType>::connected_undirected() const
 {
     seqQueue<verNode<verType, edgeType> *> q;
     edgeNode<verType, edgeType> *p;
@@ -315,9 +324,84 @@ bool Graph<verType, edgeType>::connected_undircted() const
         return false;
     return true;
 }
+// 判断有向图是否有回路
+template <class verType, class edgeType>
+bool Graph<verType, edgeType>::cyclic_directed(verNode<verType, edgeType> *v, map<verNode<verType, edgeType> *, bool> &rec) const
+{
+    //搜索只有!v->visited时才会进入
+    assert(!v->visited);
+    //e用于遍历邻边
+    edgeNode<verType, edgeType> *e = v->head->next;
+    //开始以v为根搜索前置visited 和rec
+    v->visited = true;
+    rec[v] = true;
+    //用e遍历作DFS
+    while (e)
+    {
+        //e->dest为当前搜索树的一个根
+        //说明出现了环
+        if(rec[e->dest])
+            return true;
+        //已经用e->dest搜索过
+        //而又进入了当前搜索
+        //说明从e->dest搜索不会发现环
+        if (e->dest->visited)
+        {
+            e=e->next;
+            continue;
+        }
+            
+        //如果进入下面的语句，断言e->dest未访问，当然也不是当前节点的祖先
+        assert(!e->dest->visited&&!rec[e->dest]);
+        //根据cyclic_directed(e->dest,rec)判断是否有环
+        if(cyclic_directed(e->dest,rec))
+            return true;
+        //当前e->dest不能发现环，进入下一个邻接点
+        e = e->next;
+    }
+    //遍历完所有邻边，退回上一个栈
+    //同时置rec[v]为false
+    rec[v] = false;
+    return false;
+}
+// 判断有向图是否有回路
+//遍历所有节点，根据其visited和rec确定是否对其调用cyclic_directed(v,rec)
+template <class verType, class edgeType>
+bool Graph<verType, edgeType>::cyclic_directed() const
+{
+    verNode<verType, edgeType> *v = head->next, *start;
+    map<verNode<verType, edgeType> *, bool> rec;
+    // 置初始访问标志为false。
+    while (v)
+    {
+        v->visited = false;
+        v = v->next;
+    }
+    v = head->next;
+    // 遍历所有结点
+    // 逐一找到未被访问过顶点，
+    while (v)
+    {
+        // 对未访问的结点做DFS
+        if (!v->visited)
+        {
+            if(cyclic_directed(v,rec))
+                return true;
+        }
+        v = v->next;
+    }
+    return false;
+}
+// 判断无向图是否有回路
+template <class verType, class edgeType>
+bool Graph<verType, edgeType>::cyclic_undirected() const
+{
+    throw invalid_argument("cyclic_undirected()unfinished");
+    return false;
+}
 // 判断有向图是否存在欧拉回路
 template <class verType, class edgeType>
-bool Graph<verType, edgeType>::hasEulerCircuit_dircted() const
+bool Graph<verType, edgeType>::hasEulerCircuit_directed() const
 {
     if (!connected())
         return false;
@@ -328,7 +412,7 @@ bool Graph<verType, edgeType>::hasEulerCircuit_dircted() const
     // int count=0;
     while (v)
     {
-        if (v->indegree!=v->outdegree)
+        if (v->indegree != v->outdegree)
             return false;
         // count++
         v = v->next;
@@ -338,7 +422,7 @@ bool Graph<verType, edgeType>::hasEulerCircuit_dircted() const
 }
 // 判断无向图是否存在欧拉回路
 template <class verType, class edgeType>
-bool Graph<verType, edgeType>::hasEulerCircuit_undircted() const
+bool Graph<verType, edgeType>::hasEulerCircuit_undirected() const
 {
     if (!connected())
         return false;
@@ -359,7 +443,7 @@ bool Graph<verType, edgeType>::hasEulerCircuit_undircted() const
 }
 // fleury算法求有向图欧拉回路
 template <class verType, class edgeType>
-void Graph<verType, edgeType>::fleury_dircted() const
+void Graph<verType, edgeType>::fleury_directed() const
 {
     if (!hasEulerCircuit())
     {
@@ -383,10 +467,10 @@ void Graph<verType, edgeType>::fleury_dircted() const
         }
         e = v->head->next;
         tmpv = e->dest;
-        //tmp->removeEdge(v->ver,e->dest->ver);
-        v->head->next=e->next;
+        // tmp->removeEdge(v->ver,e->dest->ver);
+        v->head->next = e->next;
         delete e;
-        e=nullptr;
+        e = nullptr;
         v = tmpv;
         stk.push(v);
     }
@@ -395,7 +479,7 @@ void Graph<verType, edgeType>::fleury_dircted() const
 }
 // fleury算法求无向图欧拉回路
 template <class verType, class edgeType>
-void Graph<verType, edgeType>::fleury_undircted() const
+void Graph<verType, edgeType>::fleury_undirected() const
 {
     if (!hasEulerCircuit())
     {
@@ -419,7 +503,7 @@ void Graph<verType, edgeType>::fleury_undircted() const
         }
         e = v->head->next;
         tmpv = e->dest;
-        tmp->removeEdge( v->ver,e->dest->ver);
+        tmp->removeEdge(v->ver, e->dest->ver);
         v = tmpv;
         stk.push(v);
     }
@@ -777,8 +861,16 @@ template <class verType, class edgeType>
 bool Graph<verType, edgeType>::connected() const
 {
     if (directed)
-        return connected_dircted();
-    return connected_undircted();
+        return connected_directed();
+    return connected_undirected();
+}
+// 判断是否有回路
+template <class verType, class edgeType>
+bool Graph<verType, edgeType>::cyclic() const
+{
+    if (directed)
+        return cyclic_directed();
+    return cyclic_undirected();
 }
 template <class verType, class edgeType>
 Graph<verType, edgeType> *Graph<verType, edgeType>::clone() const
@@ -827,18 +919,18 @@ template <class verType, class edgeType>
 bool Graph<verType, edgeType>::hasEulerCircuit() const
 {
     if (directed)
-        return hasEulerCircuit_dircted();
+        return hasEulerCircuit_directed();
     else
-        return hasEulerCircuit_undircted();
+        return hasEulerCircuit_undirected();
 }
 // fleury算法求欧拉回路
 template <class verType, class edgeType>
 void Graph<verType, edgeType>::fleury() const
 {
     if (directed)
-        return fleury_dircted();
+        return fleury_directed();
     else
-        return fleury_undircted();
+        return fleury_undirected();
 }
 template <class verType, class edgeType>
 Graph<verType, edgeType>::~Graph()
